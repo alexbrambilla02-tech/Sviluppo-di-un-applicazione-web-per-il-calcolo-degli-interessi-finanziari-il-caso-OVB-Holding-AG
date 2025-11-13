@@ -8,8 +8,8 @@ Gestisce le rotte principali e collega la parte logica di calculator.py
 con l'interfaccia web realizzata in HTML, CSS e JavaScript.
 """
 
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, Form, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 #Utilizzo Jinja2
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -43,11 +43,9 @@ async def home(request: Request):
 
 
 
-# ROTTA DI CALCOLO (POST)
-
-@app.post("/calculate", response_class=HTMLResponse)
-async def calculate(
-    request: Request,
+# ROTTA API-BASED UFFICIALE (calcolo via backend, risposta JSON)
+@app.post("/api/calculate")
+async def api_calculate(
     vers_iniziale: float = Form(...),
     vers_periodico: float = Form(...),
     anni: float = Form(...),
@@ -56,16 +54,12 @@ async def calculate(
     frequenza: str = Form(...)
 ):
     """
-    Riceve i dati inviati dal form, esegue il calcolo
-    e restituisce i risultati all’utente tramite il template HTML.
+    Endpoint API-based: usato dal frontend tramite fetch().
+    Restituisce un JSON con i risultati del calcolo.
     """
-    context = {"request": request}
-
     try:
         risultati = calcola(vers_iniziale, vers_periodico, interesse, anni, tipo, frequenza)
-        context["risultati"] = risultati
+        return JSONResponse(content=risultati)
     except Exception as e:
-        print("Errore durante il calcolo:", e)
-        context["errore"] = "Si è verificato un problema durante il calcolo. Controllare i dati inseriti."
-
-    return templates.TemplateResponse("index.html", context)
+        print("Errore API:", e)
+        raise HTTPException(status_code=400, detail= "Dati non validi o errore nel calcolo.")

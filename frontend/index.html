@@ -83,173 +83,188 @@
 </div>
 
 <script>
-const calcForm = document.getElementById('calcForm');
-const formCard = document.getElementById('formCard');
-const resultsCard = document.getElementById('resultsCard');
-const risultatiBox = document.getElementById('risultatiBox');
-const nuovoBtn = document.getElementById('nuovoCalcolo');
-const freqContainer = document.getElementById('frequenzaContainer');
-let chart = null;
+const formCalcolo = document.getElementById('calcForm');
+const cardForm = document.getElementById('formCard');
+const cardRisultati = document.getElementById('resultsCard');
+const boxRisultati = document.getElementById('risultatiBox');
+const btnNuovoCalcolo = document.getElementById('nuovoCalcolo');
+const selezioneFrequenza = document.getElementById('frequenzaContainer');
 
+let grafico = null;
+
+// Animazione titolo iniziale
 window.addEventListener('load', () => {
-    const formTitle = document.querySelector('#formCard h1');
-    if(formTitle) formTitle.classList.add('h1-show');
+    const titolo = document.querySelector('#formCard h1');
+    if (titolo) titolo.classList.add('h1-show');
 });
 
-function formatta_euro(val) {
-    return val.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2});
+// Formattazione valuta
+function formattaValuta(valore) {
+    return valore.toLocaleString('it-IT', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 }
 
-function animaPro(montante, interessi, versamenti, datiGrafico, chart, durata=2000){
-    const steps = durata/16;
-    let currentStep = 0;
-    const anim = setInterval(()=>{
-        currentStep++;
-        const progress = currentStep/steps;
-        document.getElementById('montanteTot').innerHTML = '€ ' + formatta_euro(montante*progress);
-        document.getElementById('versamentiTot').innerHTML = '€ ' + formatta_euro(versamenti*progress);
-        document.getElementById('interessiMat').innerHTML = '€ ' + formatta_euro(interessi*progress);
-        if(chart && chart.data && chart.data.datasets[0]){
-            chart.data.datasets[0].data = datiGrafico.map(v => v*progress);
-            chart.update('none');
+// Animazione numeri dei risultati
+function animaValori(montanteFinale, interessiTotali, versamentiTotali, datiGrafico, grafico, durata = 2000) {
+    const passi = durata / 16;
+    let step = 0;
+
+    const intervallo = setInterval(() => {
+        step++;
+        const progresso = step / passi;
+
+        const elMontante = document.getElementById('montanteTot');
+        const elVersTot = document.getElementById('versamentiTot');
+        const elInteressi = document.getElementById('interessiMat');
+
+        if (!elMontante) {
+            clearInterval(intervallo);
+            return;
         }
-        document.getElementById('montanteTot').style.opacity = progress;
-        if(currentStep >= steps){
-            clearInterval(anim);
-            document.getElementById('montanteTot').innerHTML = '€ ' + formatta_euro(montante);
-            document.getElementById('versamentiTot').innerHTML = '€ ' + formatta_euro(versamenti);
-            document.getElementById('interessiMat').innerHTML = '€ ' + formatta_euro(interessi);
-            document.getElementById('montanteTot').style.opacity = 1;
+
+        elMontante.innerHTML = '€ ' + formattaValuta(montanteFinale * progresso);
+        elVersTot.innerHTML = '€ ' + formattaValuta(versamentiTotali * progresso);
+        elInteressi.innerHTML = '€ ' + formattaValuta(interessiTotali * progresso);
+
+        if (grafico && grafico.data?.datasets[0]) {
+            grafico.data.datasets[0].data = datiGrafico.map(v => v * progresso);
+            grafico.update('none');
+        }
+
+        if (step >= passi) {
+            clearInterval(intervallo);
+            elMontante.innerHTML = '€ ' + formattaValuta(montanteFinale);
+            elVersTot.innerHTML = '€ ' + formattaValuta(versamentiTotali);
+            elInteressi.innerHTML = '€ ' + formattaValuta(interessiTotali);
         }
     }, 16);
 }
 
-calcForm.addEventListener('submit', function(e){
+// Gestione di submit
+formCalcolo.addEventListener('submit', function(e) {
     e.preventDefault();
-    const data = new FormData(calcForm);
-    const vers_iniziale = parseFloat(data.get('vers_iniziale'));
-    const vers_periodico = parseFloat(data.get('vers_periodico'));
-    const anni = parseFloat(data.get('anni'));
-    const interesse = parseFloat(data.get('interesse'));
-    const tipo = data.get('tipo');
-    const frequenza_str = data.get('frequenza');
-    const freqMap = {"annuale":1,"trimestrale":4,"mensile":12};
-    const n = freqMap[frequenza_str] || 1;
 
-    let versamentiTot = vers_iniziale + vers_periodico*n*anni;
-    let montanteTot = 0;
-    let interessi = 0;
+    const dati = new FormData(formCalcolo);
 
+    const versamentoIniziale = parseFloat(dati.get('vers_iniziale'));
+    const versamentoPeriodico = parseFloat(dati.get('vers_periodico'));
+    const anni = parseFloat(dati.get('anni'));
+    const tasso = parseFloat(dati.get('interesse'));
+    const tipoInteresse = dati.get('tipo');
+    const frequenza = dati.get('frequenza');
 
-if (tipo === "semplice") {
-    const i = interesse / 100;
-    const n_periodi = n;
-    const m = n_periodi * anni;
-    const capitale_totale = vers_iniziale + vers_periodico * m;
+    const freqToNum = { annuale: 1, trimestrale: 4, mensile: 12 };
+    const periodi = freqToNum[frequenza] || 1;
 
-    // Modello lineare realistico: ogni versamento matura in media metà tempo
-    const interessi_totali = capitale_totale * i * (anni / 2);
-    montanteTot = capitale_totale + interessi_totali;
-    interessi = interessi_totali; // ✅ aggiorna la variabile per la visualizzazione
-} else {
-    const i = interesse / 100;
-    const n_periodi = n;
-    const potenza = Math.pow(1 + i / n_periodi, n_periodi * anni);
+    const versTotali = versamentoIniziale + versamentoPeriodico * periodi * anni;
+    let montanteFinale = 0;
+    let interessiTotali = 0;
 
-    // Versamento iniziale capitalizzato
-    const mont_iniz = vers_iniziale * potenza;
+    //Calcolo locale
+    if (tipoInteresse === "semplice") {
+        const i = tasso / 100;
+        const m = periodi * anni;
 
-    // Piano di accumulo dei versamenti periodici
-    const mont_per = vers_periodico * (potenza - 1) / (i / n_periodi);
+        const montIniz = versamentoIniziale * (1 + i * anni);
+        const montPer = versamentoPeriodico * m + versamentoPeriodico * i * ((m - 1) / (2 * periodi));
 
-    // Totale e interessi maturati
-    montanteTot = mont_iniz + mont_per;
-    interessi = montanteTot - versamentiTot;
-}
+        montanteFinale = montIniz + montPer;
+        interessiTotali = montanteFinale - versTotali;
 
+    } else {
+        const i = tasso / 100;
+        const pot = Math.pow(1 + i / periodi, periodi * anni);
 
-    risultatiBox.innerHTML = `
-        <p style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom:5px; text-transform:uppercase;">CAPITALE FINALE</p>
+        const montIniz = versamentoIniziale * pot;
+        const montPer = versamentoPeriodico * ( (pot - 1) / (i / periodi) );
+
+        montanteFinale = montIniz + montPer;
+        interessiTotali = montanteFinale - versTotali;
+    }
+
+    // Inserimento dei risultati
+    boxRisultati.innerHTML = `
+        <p style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom:5px;">CAPITALE FINALE</p>
         <p id="montanteTot" class="montante-grande">€ 0</p>
         <p><strong>Versamenti totali:</strong> <span id="versamentiTot">€ 0</span></p>
         <p><strong>Interessi maturati:</strong> <span id="interessiMat">€ 0</span></p>
     `;
 
-    formCard.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-    formCard.style.opacity = 0;
-    formCard.style.transform = 'scale(0.9)';
-    setTimeout(()=>{
-        formCard.style.display = 'none';
-        resultsCard.style.display = 'block';
-        setTimeout(()=>{
-            resultsCard.classList.add('fade-show');
-            const resTitle = resultsCard.querySelector('h1');
-            if(resTitle) resTitle.classList.add('h1-show');
-        },50);
-    },500);
+    // Passaggio da form a risultati
+    cardForm.style.opacity = 0;
+    cardForm.style.transform = 'scale(0.9)';
 
-    if(chart){ chart.destroy(); chart = null; }
+    setTimeout(() => {
+        cardForm.style.display = 'none';
+        cardRisultati.style.display = 'block';
+        setTimeout(() => {
+            cardRisultati.classList.add('fade-show');
+        }, 50);
+    }, 400);
 
-    const ctx = document.getElementById('graficoRisparmio').getContext('2d');
-    const labels = [];
-    const datiGrafico = [];
-    for(let anno=1; anno<=anni; anno++){
-        let cap;
-        if(tipo === "semplice"){
-            const i = interesse / 100;
-            const m = n * anno;
-            const mont_iniz = vers_iniziale * (1 + i * anno);
-            const mont_per = vers_periodico * m + vers_periodico * i * ((m - 1) / (2 * n));
-            cap = mont_iniz + mont_per;
-        } else {
-            cap = vers_iniziale*Math.pow(1 + interesse/100/n, n*anno) + 
-                  vers_periodico*((Math.pow(1 + interesse/100/n, n*anno)-1)/(interesse/100/n));
-        }
-        labels.push(`Anno ${anno}`);
-        datiGrafico.push(cap);
+    // Grafico andamento
+    if (grafico) {
+        grafico.destroy();
     }
 
-    let borderColor = tipo === 'composto' ? '#00c183' : '#0074D9';
-    let backgroundColor = tipo === 'composto' ? 'rgba(0,193,131,0.2)' : 'rgba(0,116,217,0.2)';
+    const ctx = document.getElementById('graficoRisparmio').getContext('2d');
+    const etichette = [];
+    const valoriGrafico = [];
 
-    chart = new Chart(ctx, {
-        type:'line',
-        data:{ labels: labels, datasets:[{
-            label:'Capitale accumulato (€)',
-            data:datiGrafico.map(v=>0),
-            borderColor:borderColor,
-            backgroundColor:backgroundColor,
-            fill:true,
-            tension:0.3,
-            pointRadius:5,
-            pointHoverRadius:8,
-            pointHoverBackgroundColor:'#00c183',
-            pointHoverBorderColor:'#0074D9',
-            pointHoverBorderWidth:3
-        }]},
-        options:{
-            responsive:true,
-            plugins:{ legend:{display:false} },
-            scales:{ y:{ beginAtZero:true, ticks:{ callback: v=>'€ '+formatta_euro(v) } } }
+    for (let anno = 1; anno <= anni; anno++) {
+        let capitale;
+
+        if (tipoInteresse === "semplice") {
+            const i = tasso / 100;
+            const m = periodi * anno;
+            capitale = versamentoIniziale * (1 + i * anno)
+                     + versamentoPeriodico * m
+                     + versamentoPeriodico * i * ((m - 1) / (2 * periodi));
+        } else {
+            const i = tasso / 100;
+            capitale =
+                versamentoIniziale * Math.pow(1 + i / periodi, periodi * anno)
+                + versamentoPeriodico * ((Math.pow(1 + i / periodi, periodi * anno) - 1) / (i / periodi || 1));
         }
+
+        etichette.push(`Anno ${anno}`);
+        valoriGrafico.push(capitale);
+    }
+
+    grafico = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: etichette,
+            datasets: [{
+                label: 'Capitale (€)',
+                data: valoriGrafico.map(() => 0),
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: { responsive: true }
     });
 
-    animaPro(montanteTot, interessi, versamentiTot, datiGrafico, chart, 2000);
+    animaValori(montanteFinale, interessiTotali, versTotali, valoriGrafico, grafico);
 });
 
-nuovoBtn.addEventListener('click', function(){
-    resultsCard.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-    resultsCard.style.opacity = 0;
-    resultsCard.style.transform = 'scale(0.9)';
-    setTimeout(()=>{
-        resultsCard.style.display = 'none';
-        resultsCard.classList.remove('fade-show');
-        formCard.style.display = 'block';
-        formCard.style.opacity = 1;
-        formCard.style.transform = 'scale(1)';
-        calcForm.reset();
-        freqContainer.style.display = 'block';
-    },500);
+// Reset
+btnNuovoCalcolo.addEventListener('click', () => {
+    cardRisultati.style.opacity = 0;
+    cardRisultati.style.transform = 'scale(0.9)';
+
+    setTimeout(() => {
+        cardRisultati.style.display = 'none';
+        cardRisultati.classList.remove('fade-show');
+
+        cardForm.style.display = 'block';
+        cardForm.style.opacity = 1;
+        cardForm.style.transform = 'scale(1)';
+
+        formCalcolo.reset();
+    }, 400);
 });
 </script>
 </body>

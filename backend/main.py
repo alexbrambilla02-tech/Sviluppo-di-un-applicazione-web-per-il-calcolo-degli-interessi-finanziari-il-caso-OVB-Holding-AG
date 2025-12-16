@@ -42,7 +42,6 @@ async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
-
 # ROTTA API-BASED UFFICIALE (calcolo via backend, risposta JSON)
 @app.post("/api/calculate")
 async def api_calculate(

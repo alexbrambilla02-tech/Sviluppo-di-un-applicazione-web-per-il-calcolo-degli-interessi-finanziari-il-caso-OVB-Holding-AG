@@ -49,6 +49,7 @@ Mostra poi:
 
 #AVVIO APPLICAZIONE
 
-    - Installare i pacchetti necessari: pip install fastapi uvicorn jinja2
+    - Installare Python
+    - Installare i pacchetti necessari: py - pip install fastapi uvicorn jinja2
     - Avviare il server: uvicorn main:app --reload
     - Aprire nel Browser: http://127.0.0.1:8000/
